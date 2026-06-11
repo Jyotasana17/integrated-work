@@ -8,3 +8,8 @@ frontend/node_modules/
 frontend/.next/
 frontend/out/
 frontend/.env.local
+
+# SQLite runtime / WAL artifacts (transient, never commit)
+*.db-wal
+*.db-shm
+*.db-journal

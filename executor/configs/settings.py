@@ -66,6 +66,17 @@ class Settings(BaseSettings):
     WORKER_HEARTBEAT_INTERVAL: int = 5
     WORKER_TIMEOUT: int = 30
 
+    # Worker execution mode.
+    # When Redis is NOT available the API always runs an in-process worker pool
+    # (in-memory dev mode). When Redis IS available the API does NOT start
+    # workers by default — you must run them separately via `python run_worker.py`,
+    # otherwise enqueued tasks stay QUEUED forever. Set RUN_WORKER_IN_API=true to
+    # force the API to also run an in-process worker pool even with Redis
+    # (convenient for single-instance deployments where you don't want a
+    # separate worker process). For horizontally-scaled deployments keep this
+    # False and run dedicated worker processes.
+    RUN_WORKER_IN_API: bool = False
+
     # Rate Limiting & Retry
     DEFAULT_MAX_RETRIES: int = 3
     DEFAULT_RETRY_BACKOFF: float = 2.0

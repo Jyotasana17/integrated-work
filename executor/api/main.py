@@ -54,6 +54,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Guard against the most common CORS production mistake: a wildcard origin.
+# With "*" the browser forbids sending credentials (cookies / Authorization),
+# so we auto-disable allow_credentials above. If you rely on credentialed
+# requests, set CORS_ORIGINS to an explicit list of your frontend domains.
+if _allow_all and not settings.DEBUG:
+    logger.warning(
+        "CORS is configured with a wildcard origin ('*') while DEBUG is off. "
+        "Credentialed (cookie/Authorization) cross-origin requests will be "
+        "blocked by browsers. Set CORS_ORIGINS to your explicit frontend "
+        "domain(s) for production, e.g. CORS_ORIGINS=https://yourapp.com"
+    )
+
 # Prometheus metrics
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
@@ -264,8 +276,15 @@ async def startup_event():
         logger.warning(f"Redis availability check raised, assuming unavailable: {e}")
         redis_alive = False
 
-    if not redis_alive:
-        logger.info("Starting WorkerPoolManager as a background task inside FastAPI process (in-memory dev mode)...")
+    # Decide whether THIS process should run an in-process worker pool.
+    #   - No Redis  -> always run workers in-process (in-memory dev mode).
+    #   - Redis up  -> only if RUN_WORKER_IN_API=true; otherwise workers must be
+    #                  started separately (run_worker.py) or tasks stay QUEUED.
+    run_in_process_workers = (not redis_alive) or settings.RUN_WORKER_IN_API
+
+    if run_in_process_workers:
+        mode = "in-memory dev mode" if not redis_alive else "RUN_WORKER_IN_API=true with Redis"
+        logger.info(f"Starting WorkerPoolManager inside the FastAPI process ({mode})...")
         from executor.worker_manager.manager import WorkerPoolManager
         import asyncio
         manager = WorkerPoolManager(
@@ -278,7 +297,15 @@ async def startup_event():
         # Start worker manager in background task
         app.state.worker_task = asyncio.create_task(manager.start())
     else:
-        logger.info("Production Redis detected. Worker execution must be started externally via run_worker.py")
+        # Redis is up but this process is not running workers. Make the
+        # operational requirement impossible to miss: without a separate worker
+        # process, every enqueued task will stay QUEUED forever.
+        logger.warning(
+            "Redis detected and RUN_WORKER_IN_API=false: this API process will "
+            "NOT execute queued tasks. Start a worker with `python run_worker.py` "
+            "(or set RUN_WORKER_IN_API=true for single-instance deployments), "
+            "otherwise scans will remain stuck in QUEUED."
+        )
 
 
 @app.on_event("shutdown")
