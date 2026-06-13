@@ -181,8 +181,6 @@ export interface Task {
   url: string;
   headers: any;
   payload: any;
-  mutation_strategy: string | null;
-  mutation_reason: string | null;
   status: string;
   attempts: number;
   max_retries: number;

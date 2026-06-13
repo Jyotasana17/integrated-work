@@ -93,8 +93,6 @@ class Task(Base):
     url = Column(String(2048), nullable=False)
     headers = Column(JSON, nullable=True)
     payload = Column(JSON, nullable=True)
-    mutation_strategy = Column(String(255), nullable=True)
-    mutation_reason = Column(Text, nullable=True)
 
     status = Column(String(50), default=TaskStatus.QUEUED.value, index=True)
     attempts = Column(Integer, default=0)

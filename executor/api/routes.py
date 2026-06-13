@@ -64,9 +64,7 @@ async def submit_tasks(scan_id: uuid.UUID, tasks: List[TaskSubmit], db: AsyncSes
             headers=headers,
             payload=t_data.payload,
             status=TaskStatus.QUEUED.value,
-            max_retries=t_data.retry_count,
-            mutation_strategy=getattr(t_data, "mutation_strategy", None),
-            mutation_reason=getattr(t_data, "mutation_reason", None),
+            max_retries=t_data.retry_count
         )
         db_tasks.append(db_task)
         db.add(db_task)
@@ -344,8 +342,6 @@ async def get_scan_tasks(scan_id: uuid.UUID, db: AsyncSession = Depends(get_db_s
             "url": task.url,
             "headers": task.headers,
             "payload": task.payload,
-            "mutation_strategy": task.mutation_strategy,
-            "mutation_reason": task.mutation_reason,
             "status": task.status,
             "attempts": task.attempts,
             "max_retries": task.max_retries,
@@ -380,8 +376,6 @@ async def get_task_details(task_id: uuid.UUID, db: AsyncSession = Depends(get_db
         "url": task.url,
         "headers": task.headers,
         "payload": task.payload,
-        "mutation_strategy": task.mutation_strategy,
-        "mutation_reason": task.mutation_reason,
         "status": task.status,
         "attempts": task.attempts,
         "max_retries": task.max_retries,

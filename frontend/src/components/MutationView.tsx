@@ -30,24 +30,55 @@ export function MutationView({ activeScan }: MutationViewProps) {
 
       try {
         const tasks = await apiService.getScanTasks(activeScan.id)
+        // Filter tasks that are mutations or have payloads
         const fuzzTasks = tasks.filter(t => t.payload || t.url.includes("=") || t.method !== "GET")
-
         const queue = fuzzTasks.map(task => {
-          const strategy = task.mutation_strategy || "Recon Probe"
-          const payloadKeys = Object.keys(task.payload || {})
-          const firstKey = payloadKeys[0] || "param"
-          const firstVal = task.payload?.[firstKey]
+          let param = "id"
+          let original = "n/a"
+          let mutated = "fuzzed"
+          let original_full: any = "No payload"
+          let mutated_full: any = "No payload"
+          
+          if (task.payload) {
+            const keys = Object.keys(task.payload)
+            param = keys[0] || "body"
+            original = JSON.stringify(task.payload)
+            original_full = task.payload
+            
+            const mutatedPayload = { ...task.payload }
+            if (keys[0]) {
+              mutatedPayload[keys[0]] = typeof mutatedPayload[keys[0]] === "number" 
+                ? -mutatedPayload[keys[0]] 
+                : mutatedPayload[keys[0]] + "_fuzzed"
+            }
+            mutated = JSON.stringify(mutatedPayload)
+            mutated_full = mutatedPayload
+          } else {
+            // URL params
+            const urlParts = task.url.split("?")
+            if (urlParts[1]) {
+              const params = new URLSearchParams(urlParts[1])
+              const keys = Array.from(params.keys())
+              if (keys[0]) {
+                param = keys[0]
+                original = params.get(keys[0]) || ""
+                mutated = original + "_fuzzed"
+                original_full = { [param]: original }
+                mutated_full = { [param]: mutated }
+              }
+            }
+          }
+
           return {
             path: task.url,
-            param: firstKey,
-            original: "(original)",
-            mutated: firstVal !== undefined ? String(firstVal) : task.url,
-            original_full: task.payload || { url: task.url },
-            mutated_full: task.payload || { url: task.url },
-            strategy,
-            reason: task.mutation_reason || "",
+            param,
+            original,
+            mutated,
+            original_full,
+            mutated_full,
+            strategy: task.method === 'GET' ? 'ID & BOLA Mutation' : 'JSON Structure',
             status: task.status,
-            priority: "P4",
+            priority: 'P3'
           }
         })
 
@@ -67,6 +98,7 @@ export function MutationView({ activeScan }: MutationViewProps) {
     <div className="space-y-6">
       {/* Banner */}
       <div className="bg-gradient-to-r from-white to-slate-50 p-8 rounded-2xl border border-border flex items-center justify-between shadow-sm relative overflow-hidden">
+        {/* Soft decorative gradient */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
 
         <div className="relative z-10">
@@ -156,13 +188,6 @@ export function MutationView({ activeScan }: MutationViewProps) {
                     : selectedItem.mutated_full}
                 </pre>
               </div>
-
-              {selectedItem.reason && (
-                <div className="md:col-span-2 mt-2 bg-slate-50 border border-border/60 rounded-xl px-4 py-3 text-[11px] text-secondary font-medium">
-                  <span className="font-bold text-foreground uppercase tracking-widest text-[10px]">Engine Reason: </span>
-                  {selectedItem.reason}
-                </div>
-              )}
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center border border-dashed border-border rounded-2xl text-xs text-secondary font-bold uppercase tracking-widest p-8">

@@ -29,8 +29,6 @@ class TaskSubmit(BaseModel):
     auth_token: Optional[str] = None
     retry_count: int = 3
     priority_level: str = "P3"
-    mutation_strategy: Optional[str] = None  
-    mutation_reason: Optional[str] = None  
 
 
 class QueueStats(BaseModel):

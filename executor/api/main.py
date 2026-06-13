@@ -224,7 +224,6 @@ async def startup_event():
             # before serving traffic, instead of crashing later on the first
             # frontend request.
             await conn.execute(text("SELECT 1"))
-            await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database connection verified and schema created/validated.")
 
