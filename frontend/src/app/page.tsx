@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 
 // Import views
-import { LandingPage } from "@/components/LandingPage"
+import { LandingPage } from "@/components/LandingPage";
 import { Login } from "@/components/Login"
 import { AiAssistant } from "@/components/AiAssistant"
 import { DashboardView } from "@/components/DashboardView"
@@ -128,7 +128,7 @@ export default function App() {
   }
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground flex flex-col justify-between overflow-hidden">
+    <div className="relative h-screen bg-background text-foreground flex flex-col justify-between overflow-hidden">
       {/* Top Banner Alert Notification */}
       <AnimatePresence>
         {systemAlert && (
@@ -281,7 +281,7 @@ export default function App() {
               <div className="p-4 border-t border-border bg-white flex items-center justify-between text-[10px] font-bold text-muted mt-auto shadow-sm z-10 relative">
                 <span className="tracking-widest">v1.0.0</span>
                 <span className="bg-success/10 text-success px-2 py-1 rounded-md font-black tracking-widest">ONLINE</span>
-              </div>
+              </div>a
             </motion.aside>
           )}
         </AnimatePresence>

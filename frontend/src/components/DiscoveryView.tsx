@@ -45,13 +45,14 @@ export function DiscoveryView({ activeScan, onRefreshScan }: DiscoveryViewProps)
     }
   }
 
-  const loadDiscoveredEndpoints = async () => {
-    if (!activeScan) {
+  const loadDiscoveredEndpoints = async (scanId?: string) => {
+    const targetScanId = scanId || activeScan?.id
+    if (!targetScanId) {
       setDiscoveredEndpoints([])
       return
     }
     try {
-      const tasks = await apiService.getScanTasks(activeScan.id)
+      const tasks = await apiService.getScanTasks(targetScanId)
       const unique = new Map<string, any>()
       tasks.forEach(task => {
         const endpoint = taskToEndpoint(task)
@@ -71,8 +72,10 @@ export function DiscoveryView({ activeScan, onRefreshScan }: DiscoveryViewProps)
 
   const handleParse = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!activeScan) {
-      setError("Please select or create an active scan first.")
+
+    const source = specSource.trim()
+    if (!source) {
+      setError("Provide a Swagger/OpenAPI URL, spec file path, or inline spec to discover.")
       return
     }
 
@@ -81,11 +84,18 @@ export function DiscoveryView({ activeScan, onRefreshScan }: DiscoveryViewProps)
     setResult(null)
 
     try {
-      const resp = await apiService.runDiscovery(activeScan.id, specSource, baseUrl)
+      // Auto-create a scan workspace if none is selected, so discovery works
+      // directly from this page without a separate "create scan" step.
+      let scan = activeScan
+      if (!scan) {
+        const inferredName = `Discovery ${new Date().toLocaleString()}`
+        scan = await apiService.createScan(inferredName, baseUrl.trim() || source, {})
+      }
+
+      const resp = await apiService.runDiscovery(scan.id, source, baseUrl.trim() || scan.target)
       setResult(resp)
-      await loadDiscoveredEndpoints()
+      await loadDiscoveredEndpoints(scan.id)
       onRefreshScan()
-      setParsing(false)
     } catch (err: any) {
       setError(err.detail || err.message || "Failed to trigger discovery engine.")
       setParsing(false)
@@ -160,7 +170,7 @@ export function DiscoveryView({ activeScan, onRefreshScan }: DiscoveryViewProps)
             <div className="mt-auto pt-6 border-t border-border/60">
               <button
                 type="submit"
-                disabled={parsing || !activeScan}
+                disabled={parsing || !specSource.trim()}
                 className="w-full py-4 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
               >
                 {parsing ? "Parsing Spec Schema..." : "Discover & Push Queue"}

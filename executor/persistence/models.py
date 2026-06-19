@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, DateTime, JSON, ForeignKey, Float, Enum, Text
+from sqlalchemy import Column, String, Integer, DateTime, JSON, ForeignKey, Float, Enum, Text, Boolean
 from sqlalchemy.orm import relationship
 import enum
 
@@ -55,6 +55,12 @@ class WorkerStatus(str, enum.Enum):
     ONLINE = "ONLINE"
     OFFLINE = "OFFLINE"
     BUSY = "BUSY"
+
+
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"
+    USER = "user"
+    VIEWER = "viewer"
 
 
 def utcnow():
@@ -126,4 +132,28 @@ class Worker(Base):
     active_tasks = Column(Integer, default=0)
     last_heartbeat = Column(DateTime(timezone=True), default=utcnow)
 
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), nullable=False, unique=True, index=True)
+    full_name = Column(String(255), nullable=True)
+    hashed_password = Column(String(255), nullable=False)
+    role = Column(String(50), default=UserRole.USER.value, nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class RevokedToken(Base):
+    """Stores the JTI of access/refresh tokens that have been invalidated
+    (logout / refresh rotation), so they can no longer be used."""
+    __tablename__ = "revoked_tokens"
+
+    jti = Column(String(64), primary_key=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)

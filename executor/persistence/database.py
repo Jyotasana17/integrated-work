@@ -21,7 +21,15 @@ else:
     _engine_kwargs["pool_timeout"] = 30
 
 # Create the async engine
-engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
+if settings.DATABASE_URL.startswith("postgresql+asyncpg"):
+    _engine_kwargs["connect_args"] = {
+        "ssl": "require"
+    }
+
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    **_engine_kwargs
+)
 
 # Create an async session factory
 AsyncSessionLocal = async_sessionmaker(
