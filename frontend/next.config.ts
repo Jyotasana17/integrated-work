@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
+  // Prevent Next.js from inferring the wrong workspace root when multiple lockfiles exist
+  outputFileTracingRoot: path.join(__dirname, ".."),
+
   // Disabled for Docker production builds (re-enable standalone for containers)
   // output: "standalone",
 
