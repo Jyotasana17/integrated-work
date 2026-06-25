@@ -1,24 +1,39 @@
 "use client"
 
 import React, { useState } from "react"
-import { Shield, Key, Mail, Lock, ArrowRight, AlertCircle } from "lucide-react"
+import { Shield, Mail, Lock, ArrowRight, AlertCircle, User as UserIcon } from "lucide-react"
+import { apiService, ApiError } from "@/lib/api"
 
 interface LoginProps {
   onLoginSuccess: () => void
   onCancel: () => void
 }
 
-export function Login({ onCancel }: LoginProps) {
+export function Login({ onLoginSuccess, onCancel }: LoginProps) {
+  const [mode, setMode] = useState<"login" | "register">("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [apiKey, setApiKey] = useState("")
+  const [fullName, setFullName] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(false)
-    setError("Authentication service is not configured. Connect an identity provider before enforcing sign-in.")
+    setError("")
+    setLoading(true)
+    try {
+      if (mode === "register") {
+        await apiService.register(email.trim(), password, fullName.trim() || undefined)
+      } else {
+        await apiService.login(email.trim(), password)
+      }
+      onLoginSuccess()
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.detail : "Authentication failed. Please try again."
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -28,18 +43,40 @@ export function Login({ onCancel }: LoginProps) {
           <div className="bg-primary/10 p-3.5 rounded-2xl border border-primary/20 shadow-sm">
             <Shield className="w-8 h-8 text-primary animate-pulse" />
           </div>
-          <h2 className="text-2xl font-black tracking-tight text-foreground">Sign in to console</h2>
-          <p className="text-sm text-secondary font-medium">Connect a real identity provider before enforcing workspace access.</p>
+          <h2 className="text-2xl font-black tracking-tight text-foreground">
+            {mode === "register" ? "Create your account" : "Sign in to console"}
+          </h2>
+          <p className="text-sm text-secondary font-medium">
+            {mode === "register"
+              ? "The first account created becomes the workspace administrator."
+              : "Enter your credentials to access the security workspace."}
+          </p>
         </div>
 
         {error && (
-          <div className="bg-destructive/10 border border-destructive/20 text-destructive text-xs p-3.5 rounded-xl flex items-center gap-2 font-black uppercase tracking-wider">
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive text-xs p-3.5 rounded-xl flex items-center gap-2 font-bold">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === "register" && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-secondary block">Full Name</label>
+              <div className="relative">
+                <UserIcon className="w-4 h-4 text-secondary/60 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Jane Doe"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-border/80 bg-slate-50 text-foreground font-medium focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-inner text-sm"
+                />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-[10px] font-bold uppercase tracking-widest text-secondary block">Email Address</label>
             <div className="relative">
@@ -62,23 +99,10 @@ export function Login({ onCancel }: LoginProps) {
               <input
                 type="password"
                 required
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                className="w-full pl-11 pr-4 py-3 rounded-xl border border-border/80 bg-slate-50 text-foreground font-medium focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-inner text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-border/60 my-2 pt-5">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-secondary block mb-2">API Key / Token</label>
-            <div className="relative">
-              <Key className="w-4 h-4 text-secondary/60 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Paste a real platform API token"
+                placeholder={mode === "register" ? "At least 8 characters" : "Enter password"}
                 className="w-full pl-11 pr-4 py-3 rounded-xl border border-border/80 bg-slate-50 text-foreground font-medium focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-inner text-sm"
               />
             </div>
@@ -97,11 +121,25 @@ export function Login({ onCancel }: LoginProps) {
               disabled={loading}
               className="flex-1 py-3.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-bold shadow-md shadow-primary/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 uppercase tracking-wider"
             >
-              {loading ? "Checking credentials..." : "Enter Workspace"}
+              {loading
+                ? (mode === "register" ? "Creating account..." : "Signing in...")
+                : (mode === "register" ? "Create Account" : "Enter Workspace")}
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </form>
+
+        <div className="text-center text-xs text-secondary font-medium">
+          {mode === "login" ? (
+            <button type="button" onClick={() => { setError(""); setMode("register") }} className="hover:text-primary font-bold cursor-pointer">
+              No account? Create one
+            </button>
+          ) : (
+            <button type="button" onClick={() => { setError(""); setMode("login") }} className="hover:text-primary font-bold cursor-pointer">
+              Already have an account? Sign in
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

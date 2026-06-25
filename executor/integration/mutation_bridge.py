@@ -77,7 +77,9 @@ class MutationBridge:
                     headers=m.get("headers", {}),
                     payload=m.get("body", {}),
                     retry_count=1, # Fuzzing tasks shouldn't retry much
-                    priority_level="P4" # Fuzzing tasks run on lowest priority
+                    priority_level="P4", # Fuzzing tasks run on lowest priority
+                    mutation_strategy=m.get("strategy", ""),
+                    mutation_reason=m.get("reason", ""),
                 )
                 tasks.append(task)
                 

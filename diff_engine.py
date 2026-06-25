@@ -12,7 +12,7 @@ import uuid
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from scanner.models import DiffResult, ScanResponse
+from models import DiffResult, ScanResponse
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────

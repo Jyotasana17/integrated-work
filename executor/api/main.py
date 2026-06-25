@@ -301,7 +301,10 @@ async def shutdown_event():
 
 @app.get("/health")
 async def health_check():
-    redis_alive = RedisClient.check_redis_alive()
+    try:
+        redis_alive = RedisClient.check_redis_alive()
+    except Exception:
+        redis_alive = False
     return {
         "status": "ok",
     }

@@ -18,11 +18,12 @@ from executor.integration.discovery_bridge import DiscoveryBridge
 from executor.integration.jwt_bridge import JWTBridge
 from executor.integration.mutation_bridge import MutationBridge
 from executor.analysis.report_service import ReportService
+from executor.api.auth import require_auth, require_admin
 
 router = APIRouter(prefix="/api/v1", tags=["scans"])
 
 @router.post("/scans", response_model=ScanResponseModel, status_code=status.HTTP_201_CREATED)
-async def create_scan(scan_data: ScanCreate, db: AsyncSession = Depends(get_db_session)):
+async def create_scan(scan_data: ScanCreate, db: AsyncSession = Depends(get_db_session), _user=Depends(require_auth())):
     """Create a new scan."""
     new_scan = Scan(
         name=scan_data.name,
@@ -65,7 +66,9 @@ async def submit_tasks(scan_id: uuid.UUID, tasks: List[TaskSubmit], db: AsyncSes
             mutation_strategy=t_data.mutation_strategy,
             mutation_reason=t_data.mutation_reason,
             status=TaskStatus.QUEUED.value,
-            max_retries=t_data.retry_count
+            max_retries=t_data.retry_count,
+            mutation_strategy=getattr(t_data, "mutation_strategy", None),
+            mutation_reason=getattr(t_data, "mutation_reason", None),
         )
         db_tasks.append(db_task)
         db.add(db_task)
@@ -95,7 +98,7 @@ async def submit_tasks(scan_id: uuid.UUID, tasks: List[TaskSubmit], db: AsyncSes
     return {"message": f"Submitted {published_count} tasks successfully"}
 
 @router.post("/scans/{scan_id}/discover", status_code=status.HTTP_202_ACCEPTED)
-async def discover_and_submit(scan_id: uuid.UUID, req: DiscoverRequest, db: AsyncSession = Depends(get_db_session)):
+async def discover_and_submit(scan_id: uuid.UUID, req: DiscoverRequest, db: AsyncSession = Depends(get_db_session), _user=Depends(require_auth())):
     """Discover endpoints from a spec and auto-generate crawler, JWT, and fuzzing tasks."""
     scan = await db.get(Scan, scan_id)
     if not scan:
@@ -124,7 +127,23 @@ async def discover_and_submit(scan_id: uuid.UUID, req: DiscoverRequest, db: Asyn
     all_tasks = base_tasks + jwt_tasks + fuzzing_tasks
     if all_tasks:
         return await submit_tasks(scan_id, all_tasks, db)
-    return {"message": "No tasks generated from spec"}
+
+    # Nothing was generated. If the parser reported problems, the source was not
+    # a valid OpenAPI/Swagger spec (e.g. a plain URL, an API key, or malformed
+    # content). Surface an actionable error instead of a silent success.
+    parse_errors = DiscoveryBridge.last_parse_errors
+    if parse_errors:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid Swagger/OpenAPI specification: "
+                   + "; ".join(parse_errors[:3])
+                   + ". Provide a valid OpenAPI/Swagger URL (e.g. .../openapi.json) or spec content."
+        )
+    raise HTTPException(
+        status_code=400,
+        detail="No endpoints were found in the provided specification. "
+               "Ensure the source is a reachable OpenAPI/Swagger document."
+    )
 
 @router.get("/scans/{scan_id}/report")
 async def get_scan_report(scan_id: str, db: AsyncSession = Depends(get_db_session)):
@@ -333,6 +352,8 @@ async def get_scan_tasks(scan_id: uuid.UUID, db: AsyncSession = Depends(get_db_s
             "url": task.url,
             "headers": task.headers,
             "payload": task.payload,
+            "mutation_strategy": task.mutation_strategy,
+            "mutation_reason": task.mutation_reason,
             "status": task.status,
             "attempts": task.attempts,
             "max_retries": task.max_retries,
@@ -367,6 +388,8 @@ async def get_task_details(task_id: uuid.UUID, db: AsyncSession = Depends(get_db
         "url": task.url,
         "headers": task.headers,
         "payload": task.payload,
+        "mutation_strategy": task.mutation_strategy,
+        "mutation_reason": task.mutation_reason,
         "status": task.status,
         "attempts": task.attempts,
         "max_retries": task.max_retries,
@@ -652,7 +675,7 @@ async def copilot_query(payload: Dict[str, Any], db: AsyncSession = Depends(get_
 # ---------------------------------------------------------------------------
 
 @router.delete("/scans/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_scan(scan_id: uuid.UUID, db: AsyncSession = Depends(get_db_session)):
+async def delete_scan(scan_id: uuid.UUID, db: AsyncSession = Depends(get_db_session), _user=Depends(require_auth())):
     """Delete a scan and cascade delete all its tasks/responses."""
     scan = await db.get(Scan, scan_id)
     if not scan:

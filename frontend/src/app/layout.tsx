@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Async Execution System | TrustLayer Labs",
+  title: "AI-Powered API Security Intelligence Platform | TrustLayer Labs",
   description: "Enterprise API Security Testing Platform",
 };
 

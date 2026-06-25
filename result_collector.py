@@ -12,10 +12,10 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Callable, Dict, List, Optional, Tuple
 
-from scanner.diff.diff_engine import batch_compare, compare_responses
-from scanner.diff.issue_classifier import classify_all, classify_diff
-from scanner.models import DiffResult, Issue, ScanResponse
-from scanner.reporting.report_generator import build_report, save_report
+from diff_engine import batch_compare, compare_responses
+from issue_classifier import classify_all, classify_diff
+from models import DiffResult, Issue, ScanResponse
+from report_generator import build_report, save_report
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +166,7 @@ class ScanResultCollector:
         Process all buffered results and build a ScanReport.
         Call this once after all scan results have been ingested.
         """
-        from scanner.reporting.report_generator import ScanReport  # local import to avoid circular
+        from report_generator import ScanReport  # local import to avoid circular
 
         if not self._issues:
             self.process_buffered()

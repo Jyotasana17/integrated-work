@@ -150,14 +150,35 @@ async def _call_llm(system_prompt: str, user_query: str) -> str:
     # Try Gemini first, then OpenAI
     gemini_key = os.environ.get("GEMINI_API_KEY")
     openai_key = os.environ.get("OPENAI_API_KEY")
-
+    logger.info(
+        f"GEMINI_API_KEY found: {bool(gemini_key)}"
+    )
+    
+    logger.info(
+        f"OPENAI_API_KEY found: {bool(openai_key)}"
+    )
     if gemini_key:
-        return await _call_gemini(gemini_key, system_prompt, user_query)
-    elif openai_key:
-        return await _call_openai(openai_key, system_prompt, user_query)
-    else:
-        # Fallback: rule-based analysis without external LLM
-        return _rule_based_fallback(system_prompt, user_query)
+        logger.info("Using Gemini API")
+        return await _call_gemini(
+            gemini_key,
+            system_prompt,
+            user_query,
+        )
+    
+    if openai_key:
+        logger.info("Using OpenAI API")
+        return await _call_openai(
+            openai_key,
+            system_prompt,
+            user_query,
+        )
+    
+    logger.warning("No LLM API key found. Using fallback.")
+    
+    return _rule_based_fallback(
+        system_prompt,
+        user_query,
+    )
 
 
 async def _call_gemini(api_key: str, system_prompt: str, user_query: str) -> str:
@@ -178,8 +199,15 @@ async def _call_gemini(api_key: str, system_prompt: str, user_query: str) -> str
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(url, json=payload)
         if response.status_code != 200:
-            logger.error(f"Gemini API error: {response.status_code} {response.text}")
-            return _rule_based_fallback(system_prompt, user_query)
+            logger.error(
+                f"Gemini API error "
+                f"{response.status_code}: "
+                f"{response.text}"
+            )
+        
+            raise Exception(
+                f"Gemini API failed: {response.text}"
+            )
 
         data = response.json()
         try:
@@ -204,17 +232,23 @@ async def _call_openai(api_key: str, system_prompt: str, user_query: str) -> str
         "max_tokens": 1024,
     }
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(url, json=payload, headers=headers)
-        if response.status_code != 200:
-            logger.error(f"OpenAI API error: {response.status_code} {response.text}")
-            return _rule_based_fallback(system_prompt, user_query)
-
-        data = response.json()
-        try:
-            return data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError):
-            return _rule_based_fallback(system_prompt, user_query)
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload)
+    
+    except httpx.TimeoutException:
+        logger.exception("Gemini timeout")
+        return _rule_based_fallback(
+            system_prompt,
+            user_query,
+        )
+    
+    except Exception:
+        logger.exception("Gemini failed")
+        return _rule_based_fallback(
+            system_prompt,
+            user_query,
+        )
 
 
 def _rule_based_fallback(system_prompt: str, user_query: str) -> str:

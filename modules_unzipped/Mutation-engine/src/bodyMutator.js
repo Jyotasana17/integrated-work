@@ -136,7 +136,7 @@ class BodyMutator {
             mutations.push({
             body: mutated,
             strategy: `type_confusion:${key}=${typeNewValue}`,
-            reason: `Testing if server validates type of ${key} — sent ${typeName} instead of ${typeof value}`
+            reason: `Testing if server validates type of ${key} — sent ${typeNewValue} instead of ${typeof value}`
             });
         }
         return mutations

@@ -12,6 +12,10 @@ class DiscoveryBridge:
     Bridges the endpoint_discovery module with the Async Execution System.
     Parses an OpenAPI spec and generates standard execution tasks (API Crawler tasks).
     """
+
+    # Errors/warnings from the most recent parse, so callers can surface a
+    # descriptive validation message to the user instead of a silent no-op.
+    last_parse_errors: List[str] = []
     
     @staticmethod
     def generate_tasks_from_spec(spec_source: str, base_url: str = "") -> List[TaskSubmit]:
@@ -90,7 +94,10 @@ class DiscoveryBridge:
         if not endpoints and result.get("errors_encountered"):
             raise ValueError("Spec discovery failed: " + "; ".join(result["errors_encountered"][:5]))
         
-        logger.info(f"Discovered {len(endpoints)} endpoints from spec.")
+        if len(endpoints) == 0:
+            raise ValueError(
+                f"No endpoints discovered. Parser errors: {DiscoveryBridge.last_parse_errors}"
+            )
         
         tasks = []
         for ep in endpoints:

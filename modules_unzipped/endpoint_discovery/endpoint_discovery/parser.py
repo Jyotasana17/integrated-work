@@ -14,9 +14,10 @@ except ImportError:
 # Set up logging
 logger = logging.getLogger(__name__)
 
+
 class OpenAPIParser:
     """Parses OpenAPI 3.0 or Swagger 2.0 specifications with high resilience."""
-
+    
     VALID_METHODS = {'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD', 'TRACE'}
 
     def __init__(self, spec_data: Dict[str, Any]):
@@ -25,42 +26,77 @@ class OpenAPIParser:
         self.errors_encountered: List[str] = []
         self.seen_endpoints: Set[tuple] = set()
 
+
     @classmethod
-    def from_file(cls, filepath: str) -> "OpenAPIParser":
-        """Loads a specification from a JSON or YAML file."""
+    def from_file(cls, filepath: str):
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
-            return cls.from_content(content, source_name=filepath)
+        
+            return cls.from_content(
+                content,
+                source_name=filepath
+                )
+        
         except Exception as e:
-            # Create a parser with empty data and record the error
             parser = cls({})
-            parser.errors_encountered.append(f"Could not load file {filepath}: {str(e)}")
+            parser.errors_encountered.append(
+                f"Could not load file {filepath}: {str(e)}"
+            )
             return parser
 
     @classmethod
     def from_url(cls, url: str) -> "OpenAPIParser":
         """Fetches a specification from a URL (JSON or YAML)."""
         try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.get(url)
+            with httpx.Client(
+            timeout=30.0,
+            follow_redirects=True,
+            verify=True
+            ) as client:
+                response = client.get(
+                    url,
+                    follow_redirects=True
+                )
+                logger.info(f"Fetching {url}")
+                logger.info(f"Status Code : {response.status_code}")
+                logger.info(response.text[:500])
                 response.raise_for_status()
-                return cls.from_content(response.text, source_name=url)
+                content_type = response.headers.get("Content-Type", "")
+                if "yaml" in content_type or "yml" in content_type:
+                    return cls.from_content(
+                        response.text,
+                        source_name="remote_yaml"
+                    )
+                else:
+                    return cls.from_content(
+                        response.text,
+                        source_name="remote_json"
+                    )
+                
         except Exception as e:
+            logger.exception(e)
+        
             parser = cls({})
-            parser.errors_encountered.append(f"Could not fetch URL {url}: {str(e)}")
+            parser.errors_encountered.append(
+                f"Could not fetch URL {url}: {e}"
+            )
             return parser
-
+    
     @classmethod
     def from_content(cls, content: str, source_name: str = "content") -> "OpenAPIParser":
         """Parses specification from a string content."""
         # Try JSON first
         try:
             data = json.loads(content)
+            if not isinstance(data, dict):
+                raise ValueError("Specification root must be an object")
         except json.JSONDecodeError as e:
             if yaml:
                 try:
                     data = yaml.safe_load(content)
+                    if not isinstance(data, dict):
+                        raise ValueError("Invalid YAML specification")
                 except Exception as ye:
                     parser = cls({})
                     parser.errors_encountered.append(f"Failed to parse {source_name} as JSON or YAML: {e}, {ye}")

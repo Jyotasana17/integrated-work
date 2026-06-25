@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from scanner.models import (
+from models import (
     Issue,
     ScanReport,
     ScanSummary,

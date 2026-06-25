@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from scanner.models import (
+from models import (
     DiffResult,
     Issue,
     IssueType,

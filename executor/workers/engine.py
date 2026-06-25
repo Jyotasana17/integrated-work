@@ -157,6 +157,17 @@ class WorkerEngine:
 
         except Exception as e:
             logger.error(f"Critical error processing task {payload.task_id}: {e}")
+            # Never leave a task stuck in PROCESSING: persist the failure so the
+            # scan can complete and the error surfaces to the API/UI.
+            try:
+                await self._save_response(
+                    payload.task_id,
+                    TaskStatus.FAILED.value,
+                    None, None, None, None,
+                    f"Worker error: {e}"
+                )
+            except Exception as save_err:
+                logger.error(f"Failed to persist critical error for {payload.task_id}: {save_err}")
             await self.consumer.send_to_dlq(payload, str(e))
         finally:
             self.semaphore.release()

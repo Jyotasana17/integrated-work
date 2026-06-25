@@ -38,7 +38,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   }
 
   if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
+    let detail = '';
     try {
       const body = await res.json();
       detail = body.detail || body.message || detail;
@@ -95,6 +95,8 @@ export interface Task {
   url: string;
   headers: any;
   payload: any;
+  mutation_strategy: string | null;
+  mutation_reason: string | null;
   status: string;
   attempts: number;
   max_retries: number;
@@ -252,6 +254,51 @@ export interface CopilotResponse {
 // ---------------------------------------------------------------------------
 
 export const apiService = {
+  // ---- Auth ----
+
+  async register(email: string, password: string, fullName?: string): Promise<AuthResponse> {
+    const data = await apiFetch<AuthResponse>(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, full_name: fullName }),
+    });
+    authStore.set(data.access_token, data.refresh_token, data.user);
+    return data;
+  },
+
+  async login(email: string, password: string): Promise<AuthResponse> {
+    const data = await apiFetch<AuthResponse>(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    authStore.set(data.access_token, data.refresh_token, data.user);
+    return data;
+  },
+
+  async logout(): Promise<void> {
+    const refresh = authStore.getRefresh();
+    try {
+      if (refresh) {
+        await fetch(`${API_BASE_URL}/auth/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refresh }),
+        });
+      }
+    } finally {
+      authStore.clear();
+    }
+  },
+
+  async getMe(): Promise<AuthUser> {
+    return apiFetch<AuthUser>(`${API_BASE_URL}/auth/me`);
+  },
+
+  async listUsers(): Promise<AuthUser[]> {
+    return apiFetch<AuthUser[]>(`${API_BASE_URL}/auth/users`);
+  },
+
   // ---- Scans ----
 
   async getScans(): Promise<Scan[]> {

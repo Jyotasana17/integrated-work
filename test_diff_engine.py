@@ -10,7 +10,7 @@ from datetime import datetime
 
 import pytest
 
-from scanner.diff.diff_engine import (
+from diff_engine import (
     _body_similarity,
     _extract_ids,
     _field_diff,
@@ -18,10 +18,10 @@ from scanner.diff.diff_engine import (
     compare_responses,
     detect_data_leak,
 )
-from scanner.diff.issue_classifier import classify_diff, classify_all
-from scanner.integrations.result_collector import ScanResultCollector
-from scanner.models import IssueType, ScanResponse, SeverityLevel
-from scanner.reporting.report_generator import (
+from issue_classifier import classify_diff, classify_all
+from result_collector import ScanResultCollector
+from models import IssueType, ScanResponse, SeverityLevel
+from report_generator import (
     build_report,
     generate_json,
     generate_html,
